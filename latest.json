@@ -1,0 +1,6 @@
+{
+  "v": 1,
+  "updated_at": "2026-10-22",
+  "geoip": { "size": 11287259, "sha256": "fe7bb9b2dab756c29c37394ddc8fcb22d985c177983e33781bf76b8c473c3079" },
+  "geosite": { "size": 4286708, "sha256": "e483d6318d450586ce05d0cebcde62b987264e0e61f0df5042eeb8aa57750dde" }
+}
