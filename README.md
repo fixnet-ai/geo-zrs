@@ -21,7 +21,8 @@ curl -L -o geosite.zrs https://cdn.jsdelivr.net/gh/fixnet-ai/geo-zrs@main/geosit
 | --- | --- |
 | `geoip.zrs` / `geosite.zrs` | 全量库产物（zrs v2 格式：magic `ZRS2`） |
 | `latest.json` | `v` / `updated_at`（YYYY-MM-DD）/ `geoip`、`geosite` 各含 `size`、`sha256` |
-| `update.sh` | 一键更新（`ZIGROUTE=<检出路径> ./update.sh`） |
+| `update.sh` | 一键更新（`ZIGROUTE=<检出路径> ./update.sh`；只碰上述三文件，不触及 `diag/`） |
+| `diag/` | 链路解锁判定表（独立资产、独立版本节奏）：`rules.json` + `manifest.json`（sha256）。真源=kiss 仓 `docs/diag-rules/sites.yaml`，经 kiss-core `diag_table` 编译后由 kiss 仓 `docs/diag-rules/publish.sh` 推入此处 |
 
 新旧判定 = 清单 `sha256` 对比本地，不使用 etag / 304。
 
