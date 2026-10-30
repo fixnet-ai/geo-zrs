@@ -1,0 +1,125 @@
+{
+  "rule": {
+    "route_rules_prepend": [
+      {
+        "port": 53,
+        "action": "hijack-dns"
+      },
+      {
+        "ip_is_private": true,
+        "outbound": "direct-out"
+      },
+      {
+        "rule_set": [
+          "category-ai-!cn"
+        ],
+        "outbound": "kiss-exit-nohk"
+      },
+      {
+        "domain_suffix": [
+          "deepseek.com"
+        ],
+        "outbound": "direct-out"
+      },
+      {
+        "geosite": [
+          "cn"
+        ],
+        "outbound": "direct-out"
+      },
+      {
+        "geoip": [
+          "cn"
+        ],
+        "outbound": "direct-out"
+      }
+    ],
+    "node_domain_resolver": "default-dns"
+  },
+  "global": {
+    "replace_sections": {
+      "dns": {
+        "servers": [
+          {
+            "type": "fakeip",
+            "tag": "dns-fakeip",
+            "inet4_range": "198.18.0.0/15",
+            "local_answers_only": true
+          },
+          {
+            "type": "udp",
+            "tag": "dns-bootstrap",
+            "server": "223.5.5.5",
+            "server_port": 53,
+            "detour": "direct-out"
+          },
+          {
+            "type": "https",
+            "tag": "dns-remote",
+            "server": "1.1.1.1",
+            "path": "/dns-query"
+          }
+        ],
+        "rules": [
+          {
+            "query_type": [
+              "A",
+              "AAAA"
+            ],
+            "server": "dns-fakeip"
+          }
+        ],
+        "final": "dns-remote",
+        "strategy": "prefer_ipv4",
+        "background_resolve": false
+      }
+    },
+    "route_rules_prepend": [
+      {
+        "port": 443,
+        "network": [
+          "udp"
+        ],
+        "action": "reject"
+      }
+    ],
+    "route_shaping": {
+      "keep_route_outbound": [],
+      "final": "proxy"
+    },
+    "node_domain_resolver": "dns-bootstrap"
+  },
+  "direct": {
+    "replace_sections": {
+      "dns": {
+        "servers": [
+          {
+            "type": "udp",
+            "tag": "default-dns",
+            "server": "223.5.5.5",
+            "detour": "direct-out"
+          }
+        ],
+        "final": "default-dns",
+        "strategy": "prefer_ipv4"
+      }
+    },
+    "route_shaping": {
+      "keep_route_outbound": [
+        "proxy"
+      ],
+      "final": "direct-out"
+    },
+    "route_rules_prepend": [
+      {
+        "geosite": [
+          "google",
+          "github",
+          "gfw"
+        ],
+        "outbound": "proxy"
+      }
+    ],
+    "node_domain_resolver": "default-dns"
+  }
+}
