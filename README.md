@@ -22,7 +22,7 @@ curl -L -o geo-full.zrs.zip https://github.com/fixnet-ai/geo-zrs/releases/downlo
 | `geo-base.zrs(.zip)` | 裁剪库容器（cn+cn-ip+google+github+gfw+**ads 轻量版**，~2.2MB / zip ~0.76MB；app 构建内置源） |
 | `version.json` | `v:2` / `tag` / `files`（zip 与解压后 zrs 双层 size+sha256，zip 条目带 release `url`） |
 | `update.sh` | 一键刷新：`./update.sh [--publish]`（本仓自包含工具；--publish = release 资产 + version.json 入仓） |
-| `.github/workflows/update.yml` | 每日 cron 自动刷新（需仓 secret `ORG_PAT`：对 fixnet-ai/zigroute 的 contents:read） |
+| `.github/workflows/update.yml` | 每日 cron 自动刷新（自包含构建，零 secret） |
 | `ads-lite.txt` | 广告轻量集三段式文本（exact/suffix/keyword/regex；源自 @sing 905 条一次性导出，转换时覆盖上游重版） |
 | `src/` | zrs 格式 + dat 解析 + 转换工具（Zig 包 `geozrs`；消费方 import 面 = zrs matcher/容器） |
 | `diag/` | 链路解锁判定表（独立资产，不受本架构影响） |

@@ -1,1 +1,4 @@
+.zig-cache/
+zig-out/
+work/
 dist/
