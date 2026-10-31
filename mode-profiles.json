@@ -84,7 +84,9 @@
       }
     ],
     "route_shaping": {
-      "keep_route_outbound": [],
+      "keep_route_outbound": [
+        "direct-out"
+      ],
       "final": "proxy"
     },
     "node_domain_resolver": "dns-bootstrap"
@@ -111,15 +113,6 @@
       "final": "direct-out"
     },
     "route_rules_prepend": [
-      {
-        "ip_cidr": [
-          "1.1.1.1/32",
-          "1.0.0.1/32",
-          "8.8.8.8/32",
-          "8.8.4.4/32"
-        ],
-        "outbound": "proxy"
-      },
       {
         "geosite": [
           "google",
