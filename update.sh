@@ -35,4 +35,15 @@ git -C "$REPO_DIR" add geoip.zrs geosite.zrs latest.json
 git -C "$REPO_DIR" -c user.name=fixnet-ai -c user.email=28281228+fixnet-ai@users.noreply.github.com \
   commit -m "data: refresh full zrs ($TODAY)" || { echo 'no changes'; exit 0; }
 git -C "$REPO_DIR" push origin main
+
+# jsDelivr 边缘缓存主动失效（@main 可变引用边缘 TTL ~12h，不 purge 设备要等一个
+# TTL 窗口才见新表——2026-10-31 mode-profiles v4 实锚；官方工具页
+# https://www.jsdelivr.com/tools/purge 的 API 形态）。四个发布物全清；purge 失败
+# 只警告不阻断（旧缓存内容自洽，最坏晚一个 TTL 生效）。
+for f in latest.json geoip.zrs geosite.zrs mode-profiles.json; do
+  curl -sS -x "$PROXY" "https://purge.jsdelivr.net/gh/fixnet-ai/geo-zrs@main/$f" \
+    | grep -q '"status"[[:space:]]*:[[:space:]]*"finished"' \
+    || echo "WARN: purge $f 未确认（CDN 可能仍陈旧一个 TTL）"
+done
+
 echo "updated: $TODAY ip=$IP_SHA dom=$DOM_SHA"
