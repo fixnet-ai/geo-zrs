@@ -1,33 +1,36 @@
 # geo-zrs
 
-预转换的 GeoIP / GeoSite 全量规则库（zrs 格式，滚动 latest + sha256 清单）。
+数据集分发仓（v2 架构，2026-10-31 定稿：kiss 仓 `docs/routing-program.md` §9）。
 上游：[Loyalsoldier/geoip](https://github.com/Loyalsoldier/geoip) 与
 [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 的 release `dat`，
-经 [zigroute](../zigroute) 的 `zrs-convert` 转换（同源同工具，与 fixnet 内嵌基础库同血缘）。
+经 [zigroute](../zigroute) 的 `zrs-convert` 转成 **KZF1 复合容器**（domain+ip 两段，mmap 直查）。
 
 ## 快速开始
 
 ```sh
-# 清单（小文件，判断新旧）
-curl -L https://cdn.jsdelivr.net/gh/fixnet-ai/geo-zrs@main/latest.json
-# 数据（jsdelivr 镜像；GitHub raw 为兜底源）
-curl -L -o geoip.zrs    https://cdn.jsdelivr.net/gh/fixnet-ai/geo-zrs@main/geoip.zrs
-curl -L -o geosite.zrs https://cdn.jsdelivr.net/gh/fixnet-ai/geo-zrs@main/geosite.zrs
+# 版本清单（小文件，判定唯一真源；GitHub raw 唯一，无 CDN）
+curl -L https://raw.githubusercontent.com/fixnet-ai/geo-zrs/main/version.json
+# 数据资产（GitHub Release，不进 git 历史）
+curl -L -o geo-full.zrs.zip https://github.com/fixnet-ai/geo-zrs/releases/download/data-20261031/geo-full.zrs.zip
 ```
 
 ## 配置与 API
 
-| 文件 | 说明 |
+| 产物 | 说明 |
 | --- | --- |
-| `geoip.zrs` / `geosite.zrs` | 全量库产物（zrs v2 格式：magic `ZRS2`） |
-| `latest.json` | `v` / `updated_at`（YYYY-MM-DD）/ `geoip`、`geosite` 各含 `size`、`sha256` |
-| `update.sh` | 一键更新（`ZIGROUTE=<检出路径> ./update.sh`；只碰上述三文件，不触及 `diag/`） |
-| `diag/` | 链路解锁判定表（独立资产、独立版本节奏）：`rules.json` + `manifest.json`（sha256）。真源=kiss 仓 `docs/diag-rules/sites.yaml`，经 kiss-core `diag_table` 编译后由 kiss 仓 `docs/diag-rules/publish.sh` 推入此处 |
+| `geo-full.zrs(.zip)` | 全量库容器（260 国 / 1563 站点，~14.8MB / zip ~4.4MB） |
+| `geo-base.zrs(.zip)` | 裁剪库容器（cn+cn-ip+google+github+gfw+**ads 轻量版**，~2.2MB / zip ~0.76MB；app 构建内置源） |
+| `version.json` | `v:2` / `tag` / `files`（zip 与解压后 zrs 双层 size+sha256，zip 条目带 release `url`） |
+| `update.sh` | 一键刷新：`ZIGROUTE=<检出> ./update.sh [--publish]`（--publish = release 资产 + version.json 入仓） |
+| `.github/workflows/update.yml` | 每日 cron 自动刷新（需仓 secret `ORG_PAT`：对 fixnet-ai/zigroute 的 contents:read） |
+| `diag/` | 链路解锁判定表（独立资产，不受本架构影响） |
 
-新旧判定 = 清单 `sha256` 对比本地，不使用 etag / 304。
+同批产出 full 与 base（同上游同批转换）⇒ 两库公共 tag 点查结果一致。
+`category-ads-all` 一律用 @sing 轻量集（~905 条）覆盖上游重版（Q9 裁定）。
+新旧判定 = `version.json` sha256 对比本地；数据源 GitHub raw/releases 唯一（jsDelivr 全族退役）。
 
 ## 边界情况
 
-- 下载产物 `sha256`/`size` 与清单不符 = 截断或损坏，丢弃重试，不得装载。
-- jsdelivr 对单文件有 20MB 上限且偶发被掐：GitHub raw（`raw.githubusercontent.com/fixnet-ai/geo-zrs/main/…`）为第二源。
-- `updated_at` 是数据生成日，非发布承诺节奏；客户端应以 sha 为唯一判据。
+- `version.json` 拉不到（raw 不可达）：静默退避下次再查，本地 base/full 照常使用。
+- zip 下载损坏 / sha 不符：丢弃保旧；解压写出上限 = manifest 声明的 zrs `size`（防 zip 炸弹）。
+- Release 只保留最近 5 个 `data-*` tag（旧资产随 release 删除，存储零累积）。
