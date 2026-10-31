@@ -74,6 +74,10 @@ if [[ "$PUBLISH" == "1" ]]; then
   if [[ -n "${http_proxy:-}${https_proxy:-}" || -n "${USE_PROXY:-}" ]]; then
     GH=(env https_proxy="$PROXY" gh --repo "$REPO_SLUG")
   fi
+  # 同 tag 重跑 = 删旧建新（幂等重发布；Action 当日重试/手动补跑均安全）
+  if "${GH[@]}" release view "$TAG" >/dev/null 2>&1; then
+    "${GH[@]}" release delete "$TAG" --yes
+  fi
   "${GH[@]}" release create "$TAG" \
     "$DIST/geo-full.zrs.zip" "$DIST/geo-base.zrs.zip" \
     --title "$TAG" --notes "dataset refresh $TAG (full ~15MB zrs / zip ~4.4MB; ads-lite override)" \
