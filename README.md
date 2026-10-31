@@ -19,7 +19,7 @@ zig build zrs-convert
 | Artifact | Description |
 | --- | --- |
 | `geo-full.zrs(.zip)` | Full container — 260 countries / 1,563 site tags (~15MB, zip ~4.4MB) |
-| `geo-base.zrs(.zip)` | Trimmed container for in-app embedding — 12 datasets (~2.4MB, zip ~860KB) |
+| `geo-base.zrs(.zip)` | Trimmed container for in-app embedding — 13 datasets (~2.4MB, zip ~860KB) |
 | `version.json` | `v:2` manifest: `tag`, `updated_at`, dual fingerprints per file (zip sha = download integrity, extracted zrs sha = extraction correctness); zip entries carry the release `url` |
 | `update.sh` | One-shot refresh: `./update.sh [--publish]` — fetch upstream → convert (full + base from the same batch) → zip → manifest → Release + commit `version.json`; same-tag rerun is idempotent |
 | `.github/workflows/update.yml` | Daily cron refresh (18:23 UTC); installs the official zig tarball itself, runs with zero secrets |
@@ -27,7 +27,7 @@ zig build zrs-convert
 | `src/` | `zrs.zig` — format, container, mmap point-query matchers · `dat.zig` — protobuf dat parser · `convert.zig` — converter tool · `memprobe.zig` — memory-form probe |
 | `diag/` | Link-unlock decision tables (standalone assets, unrelated to the dataset pipeline) |
 
-**Base dataset set (12)**: `cn` (IP + domain faces), `category-ads-all` (lite), `cloudflare` (CF loop guard / Workers dialing), `telegram` (always proxy), `google`, `github`, `gfw` (direct-profile exceptions), `category-ip-geo-detect` (diagnostic egress control), `tld-!cn` (non-CN TLD prior), `category-porn` (content rating), `category-games-!cn` (game routing).
+**Base dataset set (13)**: `cn` (IP + domain faces), `category-ads-all` (lite), `cloudflare` (CF loop guard / Workers dialing), `telegram` (always proxy), `google`, `github`, `gfw` (direct-profile exceptions), `category-ai-!cn` (Smart-profile AI routing), `category-ip-geo-detect` (diagnostic egress control), `tld-!cn` (non-CN TLD prior), `category-porn` (content rating), `category-games-!cn` (game routing).
 
 **Format**: each `geo-*.zrs` is a **KZF1** composite — `[15B header | domain ZRS2 | ip ZRS2]`, both segments self-validating. Matchers binary-search flat sorted tables directly on **mmap'd file pages**: zero heap expansion, lazy paging (mapping costs +0KB RSS until touched — verified by `memprobe`), and clean pages stay reclaimable / outside iOS `phys_footprint`. Freshness is judged by `version.json` sha256 against the local file; etag/304 is never used.
 
