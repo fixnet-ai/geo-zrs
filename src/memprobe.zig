@@ -79,6 +79,7 @@ pub fn main(init: std.process.Init) !void {
         "cn", "google", "github", "gfw", "category-ads-all", "netflix", "telegram",
         "twitter", "facebook", "amazon", "microsoft", "apple", "cloudflare", "disney",
         "bilibili", "zhihu", "category-porn", "geolocation-!cn",
+        "category-ip-geo-detect", "tld-!cn", "category-games-!cn", "cloudflare", "telegram",
     };
     for (probe_tags) |t| {
         std.debug.print("  hasTag {s} = {}\n", .{ t, dm.hasTag(t) });

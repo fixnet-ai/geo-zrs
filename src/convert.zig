@@ -17,9 +17,14 @@ pub const log_level = std.log.Level.info;
 
 const DAT_MAX: usize = 64 * 1024 * 1024;
 const ADS_TAG = "category-ads-all";
-/// 特殊用途集（2026-10-31 用户裁定）：cloudflare（防 CF 回环 + Workers 节点）、
-/// telegram（无条件代理，绝不直连）——base 必须自带（首启/离线时这些判定不可缺）。
-const BASE_TAGS = "cn,category-ads-all,cloudflare,google,github,gfw,telegram";
+/// base 裁剪集（2026-10-31 用户裁定逐批扩容）：
+///   cn/ads-lite                       —— 三档分流 + 广告拦截
+///   cloudflare/telegram               —— CF 回环防护 + Workers 节点 / TG 无条件代理
+///   category-ip-geo-detect            —— 归属地检测站（诊断/测速流量出口控制）
+///   tld-!cn                           —— 非 cn 顶级域（未知策略的墙外域先验）
+///   category-porn / category-games-!cn —— 内容分级 / 外服游戏分流（消费方待接线）
+///   google/github/gfw                 —— direct 档例外链
+const BASE_TAGS = "cn,category-ads-all,category-games-!cn,category-ip-geo-detect,category-porn,cloudflare,google,github,gfw,telegram,tld-!cn";
 
 pub fn main(init: std.process.Init) !void {
     const alloc = std.heap.page_allocator;
