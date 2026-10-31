@@ -1,77 +1,94 @@
 #!/usr/bin/env bash
-# update.sh — 拉最新上游 dat → zrs-convert 转换 → 刷 latest.json → commit push。
-# 依赖：ZIGROUTE=<zigroute 检出路径>（含 zig build zrs-convert 产物链）+ 可达代理 PROXY。
+# update.sh v2 — 数据集分发架构（2026-10-31 定稿，kiss docs/routing-program.md §9）
+#
+# 上游 dat → zrs-convert（容器 + ads 轻量覆盖）→ zip → dist/ → version.json v2
+# → GitHub Release 资产发布（git 历史零增长）。
+#
+# 数据源 = GitHub raw 唯一（jsDelivr 全族退役，用户裁定 2026-10-31）。
+#
+# 用法：
+#   ZIGROUTE=../zigroute ./update.sh            # 产出 dist/ + version.json（不发布）
+#   ZIGROUTE=../zigroute ./update.sh --publish  # 产出 + gh release + commit push version.json
+# 本地跑建议挂 PROXY（raw 被墙）；GitHub Action 内直连无需代理。
 set -euo pipefail
 : "${ZIGROUTE:?ZIGROUTE=<zigroute 检出路径> 必须设置}"
 PROXY="${PROXY:-http://127.0.0.1:7890}"
+PUBLISH=0
+[[ "${1:-}" == "--publish" ]] && PUBLISH=1
+REPO_SLUG="fixnet-ai/geo-zrs"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
-curl -sS -x "$PROXY" -L -o "$WORK/geoip.dat"    https://cdn.jsdelivr.net/gh/Loyalsoldier/geoip@release/geoip.dat
-curl -sS -x "$PROXY" -L -o "$WORK/geosite.dat" https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@release/geosite.dat
+# 本地有代理环境变量时才挂 -x（Action/可达网络直接连）
+CURL=(curl -sS -f -L)
+if [[ -n "${http_proxy:-}${https_proxy:-}" || -n "${USE_PROXY:-}" ]]; then
+  CURL+=(-x "$PROXY")
+fi
 
+TAG="data-$(date +%Y%m%d)"
+WORK="$(mktemp -d)"; trap 'rm -rf "$WORK"' EXIT
+DIST="$REPO_DIR/dist"; mkdir -p "$DIST"
+
+# ── 1. 上游拉取（raw 唯一源）───────────────────────────────────────────────
+"${CURL[@]}" -o "$WORK/geoip.dat"    https://raw.githubusercontent.com/Loyalsoldier/geoip/release/geoip.dat
+"${CURL[@]}" -o "$WORK/geosite.dat" https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geosite.dat
+# ads 轻量集（@sing 分支 905 条；Q9 裁定——release dat 内该 tag 是 ~19.4 万重版）
+"${CURL[@]}" -o "$WORK/ads-lite.srs" https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ads-all.srs
+
+# ── 2. 转换（容器 + ads 覆盖；同批产出 full 与 base ⇒ 点查一致）────────────
 cp "$WORK/geoip.dat"    "$ZIGROUTE/src/geodb/testdata/full/geoip.dat"
 cp "$WORK/geosite.dat" "$ZIGROUTE/src/geodb/testdata/full/geosite.dat"
-(cd "$ZIGROUTE" && zig build zrs-convert)
+(cd "$ZIGROUTE" && zig build zrs-convert -- --ads-override "$WORK/ads-lite.srs")
 
-cp "$ZIGROUTE/src/geodb/testdata/zrs-full/geoip.zrs"    "$REPO_DIR/"
-cp "$ZIGROUTE/src/geodb/testdata/zrs-full/geosite.zrs" "$REPO_DIR/"
+# ── 3. zip + 指纹（双层：zip 下载完整性 / zrs 解压正确性）──────────────────
+for n in geo-full geo-base; do
+  src="$ZIGROUTE/src/geodb/testdata/zrs-full/geo-full.zrs"
+  [[ "$n" == "geo-base" ]] && src="$ZIGROUTE/src/geodb/testdata/zrs-base/geo-base.zrs"
+  cp "$src" "$DIST/$n.zrs"
+  (cd "$DIST" && rm -f "$n.zrs.zip" && zip -9 -q "$n.zrs.zip" "$n.zrs")
+done
 
-IP_SHA=$(shasum -a 256 "$REPO_DIR/geoip.zrs"    | cut -d' ' -f1)
-DOM_SHA=$(shasum -a 256 "$REPO_DIR/geosite.zrs" | cut -d' ' -f1)
-IP_SIZE=$(stat -f%z "$REPO_DIR/geoip.zrs")
-DOM_SIZE=$(stat -f%z "$REPO_DIR/geosite.zrs")
-TODAY=$(date +%F)
-cat > "$REPO_DIR/latest.json" <<JSON
-{
-  "v": 1,
-  "updated_at": "$TODAY",
-  "geoip": { "size": $IP_SIZE, "sha256": "$IP_SHA" },
-  "geosite": { "size": $DOM_SIZE, "sha256": "$DOM_SHA" }
+python3 - "$DIST" "$TAG" "$REPO_SLUG" <<'PY'
+import hashlib, json, sys, os
+dist, tag, slug = sys.argv[1], sys.argv[2], sys.argv[3]
+def entry(name, with_url):
+    b = open(os.path.join(dist, name), "rb").read()
+    e = {"size": len(b), "sha256": hashlib.sha256(b).hexdigest()}
+    if with_url:
+        e["url"] = f"https://github.com/{slug}/releases/download/{tag}/{name}"
+    return e
+m = {
+    "v": 2,
+    "updated_at": tag.removeprefix("data-"),
+    "tag": tag,
+    "files": {
+        "geo-full.zrs.zip": entry("geo-full.zrs.zip", True),
+        "geo-full.zrs":     entry("geo-full.zrs", False),
+        "geo-base.zrs.zip": entry("geo-base.zrs.zip", True),
+        "geo-base.zrs":     entry("geo-base.zrs", False),
+    },
 }
-JSON
-
-git -C "$REPO_DIR" add geoip.zrs geosite.zrs latest.json
-
-# ── 分流数据集镜像腿（2026-10-31 latest.json 判定迁移）─────────────────────
-# 7 件 srs @MetaCubeX@sing → datasets/<tag>.srs + datasets.json（tag→size+sha256，
-# 客户端探测/刷新的唯一新鲜度判据——etag/304 跨源不可信裁定在此通道整族退役）。
-DATASET_TAGS=(category-ai-\!cn category-ads-all geosite-cn geoip-cn geosite-google geosite-github geosite-gfw)
-for t in "${DATASET_TAGS[@]}"; do
-  curl -sS -x "$PROXY" -L -o "datasets/$t.srs" \
-    "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/$t.srs" \
-    || curl -sS -x "$PROXY" -L -o "datasets/$t.srs" \
-    "https://cdn.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geoip/${t#geoip-}.srs"
-done
-python3 - <<'PY'
-import hashlib, json, glob, os
-tags = ["category-ai-!cn","category-ads-all","geosite-cn","geoip-cn","geosite-google","geosite-github","geosite-gfw"]
-ds = {}
-for t in tags:
-    p = f"datasets/{t}.srs"
-    b = open(p, "rb").read()
-    ds[t] = {"size": len(b), "sha256": hashlib.sha256(b).hexdigest()}
-m = {"v": 1, "updated_at": os.popen("date +%F").read().strip(), "datasets": ds}
-open("datasets.json", "w").write(json.dumps(m, ensure_ascii=False, indent=2) + "\n")
+open(os.path.join(dist, "version.json"), "w").write(json.dumps(m, indent=2) + "\n")
+print("version.json:", json.dumps({k: f"{v['size']/1048576:.2f}MB" for k, v in m["files"].items()}))
 PY
-git -C "$REPO_DIR" add datasets datasets.json
 
-git -C "$REPO_DIR" -c user.name=fixnet-ai -c user.email=28281228+fixnet-ai@users.noreply.github.com \
-  commit -m "data: refresh full zrs ($TODAY)" || { echo 'no changes'; exit 0; }
-git -C "$REPO_DIR" push origin main
+# ── 4. 发布（--publish：release 资产 + version.json 入仓；git 历史零增长）──
+if [[ "$PUBLISH" == "1" ]]; then
+  GH=(gh --repo "$REPO_SLUG")
+  if [[ -n "${http_proxy:-}${https_proxy:-}" || -n "${USE_PROXY:-}" ]]; then
+    GH=(env https_proxy="$PROXY" gh --repo "$REPO_SLUG")
+  fi
+  "${GH[@]}" release create "$TAG" \
+    "$DIST/geo-full.zrs.zip" "$DIST/geo-base.zrs.zip" \
+    --title "$TAG" --notes "dataset refresh $TAG (full ~15MB zrs / zip ~4.4MB; ads-lite override)" \
+    --target main
+  cp "$DIST/version.json" "$REPO_DIR/version.json"
+  git -C "$REPO_DIR" add version.json
+  git -C "$REPO_DIR" -c user.name=fixnet-ai -c user.email=28281228+fixnet-ai@users.noreply.github.com \
+    commit -m "data: version.json $TAG" || { echo 'no changes'; exit 0; }
+  git -C "$REPO_DIR" push origin main
+  # 只保留最近 5 个 data-* release（旧资产随 release 删除，存储零累积）
+  "${GH[@]}" release list --limit 100 | awk '/data-/ {print $3}' | tail -n +6 | \
+    while read -r old; do "${GH[@]}" release delete "$old" --yes || true; done
+fi
 
-# jsDelivr 边缘缓存主动失效（@main 可变引用边缘 TTL ~12h，不 purge 设备要等一个
-# TTL 窗口才见新表——2026-10-31 mode-profiles v4 实锚；官方工具页
-# https://www.jsdelivr.com/tools/purge 的 API 形态）。发布物全清；purge 失败
-# 只警告不阻断（旧缓存内容自洽，最坏晚一个 TTL 生效）。
-PURGE_FILES=(latest.json geoip.zrs geosite.zrs mode-profiles.json datasets.json)
-for t in category-ai-\!cn category-ads-all geosite-cn geoip-cn geosite-google geosite-github geosite-gfw; do
-  PURGE_FILES+=("datasets/$t.srs")
-done
-for f in "${PURGE_FILES[@]}"; do
-  curl -sS -x "$PROXY" "https://purge.jsdelivr.net/gh/fixnet-ai/geo-zrs@main/$f" \
-    | grep -q '"status"[[:space:]]*:[[:space:]]*"finished"' \
-    || echo "WARN: purge $f 未确认（CDN 可能仍陈旧一个 TTL）"
-done
-
-echo "updated: $TODAY ip=$IP_SHA dom=$DOM_SHA"
+echo "done: $TAG (dist/ 下 geo-full.zrs.zip + geo-base.zrs.zip + version.json)"

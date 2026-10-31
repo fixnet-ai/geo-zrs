@@ -1,0 +1,37 @@
+name: dataset-refresh
+
+# 数据集分发架构 v2（2026-10-31 定稿，kiss docs/routing-program.md §9）：
+# 上游 dat（raw 唯一源）→ zrs-convert 容器 + ads 轻量覆盖 → zip →
+# GitHub Release 资产（git 历史零增长）→ version.json v2 入仓（唯一 commit）。
+# B2 无人值守运营随本工作流销案；jsDelivr/purge 全族退役。
+
+on:
+  schedule:
+    - cron: "23 18 * * *" # 每日 18:23 UTC（上游 release dat 日更后）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout zigroute (private, PAT)
+        uses: actions/checkout@v4
+        with:
+          repository: fixnet-ai/zigroute
+          token: ${{ secrets.ORG_PAT }}
+          path: zigroute
+
+      - uses: mlugg/setup-zig@v1
+        with:
+          version: 0.16.0
+
+      - name: Refresh datasets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: ZIGROUTE="$GITHUB_WORKSPACE/zigroute" ./update.sh --publish
