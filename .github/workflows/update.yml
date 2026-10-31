@@ -20,9 +20,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: mlugg/setup-zig@v1
-        with:
-          version: 0.16.0
+      # 直接装官方 tarball（setup-zig action 尚不识别 0.16 正式版的新命名
+      # zig-<arch>-<os>-<ver>，实测 404；官方 index.json 实锚本 URL）
+      - name: Install zig 0.16.0
+        run: |
+          curl -sSfL https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz | tar -xJ -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/zig-x86_64-linux-0.16.0" >> "$GITHUB_PATH"
 
       # geo-zrs 自包含（zrs 格式+转换工具同仓；公开仓零跨仓凭据——依赖方向
       # 反转：zigroute(私有) → geozrs(公开)，2026-10-31 用户裁定）
