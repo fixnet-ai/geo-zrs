@@ -1,38 +1,38 @@
 # geo-zrs
 
-数据集分发仓（v2 架构，2026-10-31 定稿：kiss 仓 `docs/routing-program.md` §9）。
-上游：[Loyalsoldier/geoip](https://github.com/Loyalsoldier/geoip) 与
-[MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat) 的 release `dat`，
-经 [zigroute](../zigroute) 的 `zrs-convert` 转成 **KZF1 复合容器**（domain+ip 两段，mmap 直查）。
+Dataset distribution repo and the canonical home of the **zrs format** (ZRS2 segments + KZF1 composite container). Upstream: release `dat` files from [Loyalsoldier/geoip](https://github.com/Loyalsoldier/geoip) and [MetaCubeX/meta-rules-dat](https://github.com/MetaCubeX/meta-rules-dat), converted by the self-contained tool in this repo. The repo has **zero private-ecosystem dependencies** — format implementation, matchers, and converter all live in `src/` — so consumers (e.g. zigroute) depend on this public repo, never the other way around, and the daily Action needs no cross-repo secrets.
 
-## 快速开始
+## Quick Start
 
 ```sh
-# 版本清单（小文件，判定唯一真源；GitHub raw 唯一，无 CDN）
+# Version manifest — the only freshness truth (GitHub raw, no CDN)
 curl -L https://raw.githubusercontent.com/fixnet-ai/geo-zrs/main/version.json
-# 数据资产（GitHub Release，不进 git 历史）
-curl -L -o geo-full.zrs.zip https://github.com/fixnet-ai/geo-zrs/releases/download/data-20261031/geo-full.zrs.zip
+# Dataset asset (GitHub Release; assets never enter git history)
+curl -L -O https://github.com/fixnet-ai/geo-zrs/releases/latest/download/geo-full.zrs.zip
+# Build & run the converter locally (expects geoip.dat + geosite.dat in src dir)
+zig build zrs-convert
+./zig-out/bin/zrs-convert --src <dat-dir> --out dist --ads-override ads-lite.txt
 ```
 
-## 配置与 API
+## Configuration & API
 
-| 产物 | 说明 |
+| Artifact | Description |
 | --- | --- |
-| `geo-full.zrs(.zip)` | 全量库容器（260 国 / 1563 站点，~14.8MB / zip ~4.4MB） |
-| `geo-base.zrs(.zip)` | 裁剪库容器（cn+cn-ip+google+github+gfw+**ads 轻量版**，~2.2MB / zip ~0.76MB；app 构建内置源） |
-| `version.json` | `v:2` / `tag` / `files`（zip 与解压后 zrs 双层 size+sha256，zip 条目带 release `url`） |
-| `update.sh` | 一键刷新：`./update.sh [--publish]`（本仓自包含工具；--publish = release 资产 + version.json 入仓） |
-| `.github/workflows/update.yml` | 每日 cron 自动刷新（自包含构建，零 secret） |
-| `ads-lite.txt` | 广告轻量集三段式文本（exact/suffix/keyword/regex；源自 @sing 905 条一次性导出，转换时覆盖上游重版） |
-| `src/` | zrs 格式 + dat 解析 + 转换工具（Zig 包 `geozrs`；消费方 import 面 = zrs matcher/容器） |
-| `diag/` | 链路解锁判定表（独立资产，不受本架构影响） |
+| `geo-full.zrs(.zip)` | Full container — 260 countries / 1,563 site tags (~15MB, zip ~4.4MB) |
+| `geo-base.zrs(.zip)` | Trimmed container for in-app embedding — 12 datasets (~2.4MB, zip ~860KB) |
+| `version.json` | `v:2` manifest: `tag`, `updated_at`, dual fingerprints per file (zip sha = download integrity, extracted zrs sha = extraction correctness); zip entries carry the release `url` |
+| `update.sh` | One-shot refresh: `./update.sh [--publish]` — fetch upstream → convert (full + base from the same batch) → zip → manifest → Release + commit `version.json`; same-tag rerun is idempotent |
+| `.github/workflows/update.yml` | Daily cron refresh (18:23 UTC); installs the official zig tarball itself, runs with zero secrets |
+| `ads-lite.txt` | Lightweight ad list, human-editable sections `[exact]` `[suffix]` `[keyword]` `[regex]` (905 entries); replaces the ~194k-entry upstream `category-ads-all` at convert time |
+| `src/` | `zrs.zig` — format, container, mmap point-query matchers · `dat.zig` — protobuf dat parser · `convert.zig` — converter tool · `memprobe.zig` — memory-form probe |
+| `diag/` | Link-unlock decision tables (standalone assets, unrelated to the dataset pipeline) |
 
-同批产出 full 与 base（同上游同批转换）⇒ 两库公共 tag 点查结果一致。
-`category-ads-all` 一律用 @sing 轻量集（~905 条）覆盖上游重版（Q9 裁定）。
-新旧判定 = `version.json` sha256 对比本地；数据源 GitHub raw/releases 唯一（jsDelivr 全族退役）。
+**Base dataset set (12)**: `cn` (IP + domain faces), `category-ads-all` (lite), `cloudflare` (CF loop guard / Workers dialing), `telegram` (always proxy), `google`, `github`, `gfw` (direct-profile exceptions), `category-ip-geo-detect` (diagnostic egress control), `tld-!cn` (non-CN TLD prior), `category-porn` (content rating), `category-games-!cn` (game routing).
 
-## 边界情况
+**Format**: each `geo-*.zrs` is a **KZF1** composite — `[15B header | domain ZRS2 | ip ZRS2]`, both segments self-validating. Matchers binary-search flat sorted tables directly on **mmap'd file pages**: zero heap expansion, lazy paging (mapping costs +0KB RSS until touched — verified by `memprobe`), and clean pages stay reclaimable / outside iOS `phys_footprint`. Freshness is judged by `version.json` sha256 against the local file; etag/304 is never used.
 
-- `version.json` 拉不到（raw 不可达）：静默退避下次再查，本地 base/full 照常使用。
-- zip 下载损坏 / sha 不符：丢弃保旧；解压写出上限 = manifest 声明的 zrs `size`（防 zip 炸弹）。
-- Release 只保留最近 5 个 `data-*` tag（旧资产随 release 删除，存储零累积）。
+## Edge Cases
+
+- `version.json` unreachable (raw blocked): consumers back off silently and retry later; the local full/base library keeps working — the embedded base is always a complete fallback, full is an enhancement.
+- Corrupt download or sha mismatch: consumers discard the partial file and keep the previous library; the manifest's declared zrs `size` caps extraction (zip-bomb guard) and the extracted sha must match before the file is swapped in.
+- Only the 5 most recent `data-*` releases are kept (older assets deleted with their release — zero storage growth); same-day reruns delete and recreate the existing tag.
