@@ -1,0 +1,17 @@
+.{
+    .name = .geozrs,
+    .version = "0.1.0",
+    .fingerprint = 0x1bc7575d14ee298e,
+    .minimum_zig_version = "0.16.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src/root.zig",
+        "src/zrs.zig",
+        "src/dat.zig",
+        "src/convert.zig",
+        "ads-lite.txt",
+        "LICENSE",
+        "README.md",
+    },
+}

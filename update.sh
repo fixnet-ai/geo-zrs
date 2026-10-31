@@ -11,7 +11,6 @@
 #   ZIGROUTE=../zigroute ./update.sh --publish  # 产出 + gh release + commit push version.json
 # 本地跑建议挂 PROXY（raw 被墙）；GitHub Action 内直连无需代理。
 set -euo pipefail
-: "${ZIGROUTE:?ZIGROUTE=<zigroute 检出路径> 必须设置}"
 PROXY="${PROXY:-http://127.0.0.1:7890}"
 PUBLISH=0
 [[ "${1:-}" == "--publish" ]] && PUBLISH=1
@@ -31,19 +30,17 @@ DIST="$REPO_DIR/dist"; mkdir -p "$DIST"
 # ── 1. 上游拉取（raw 唯一源）───────────────────────────────────────────────
 "${CURL[@]}" -o "$WORK/geoip.dat"    https://raw.githubusercontent.com/Loyalsoldier/geoip/release/geoip.dat
 "${CURL[@]}" -o "$WORK/geosite.dat" https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/release/geosite.dat
-# ads 轻量集（@sing 分支 905 条；Q9 裁定——release dat 内该 tag 是 ~19.4 万重版）
-"${CURL[@]}" -o "$WORK/ads-lite.srs" https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ads-all.srs
+# ads 轻量集 = 本仓 vendor 的 ads-lite.txt（人可读三段式；源自 @sing 一次性导出，
+# 更新时用消费方工具重新导出——本仓零 srs 解析依赖）
 
-# ── 2. 转换（容器 + ads 覆盖；同批产出 full 与 base ⇒ 点查一致）────────────
-cp "$WORK/geoip.dat"    "$ZIGROUTE/src/geodb/testdata/full/geoip.dat"
-cp "$WORK/geosite.dat" "$ZIGROUTE/src/geodb/testdata/full/geosite.dat"
-(cd "$ZIGROUTE" && zig build zrs-convert -- --ads-override "$WORK/ads-lite.srs")
+# ── 2. 转换（本仓自包含工具：容器 + ads-lite 覆盖；同批 full/base）──────────
+mkdir -p "$WORK/src"
+mv "$WORK/geoip.dat" "$WORK/geosite.dat" "$WORK/src/"
+zig build zrs-convert
+./zig-out/bin/zrs-convert --src "$WORK/src" --out "$DIST" --ads-override ads-lite.txt
 
 # ── 3. zip + 指纹（双层：zip 下载完整性 / zrs 解压正确性）──────────────────
 for n in geo-full geo-base; do
-  src="$ZIGROUTE/src/geodb/testdata/zrs-full/geo-full.zrs"
-  [[ "$n" == "geo-base" ]] && src="$ZIGROUTE/src/geodb/testdata/zrs-base/geo-base.zrs"
-  cp "$src" "$DIST/$n.zrs"
   (cd "$DIST" && rm -f "$n.zrs.zip" && zip -9 -q "$n.zrs.zip" "$n.zrs")
 done
 

@@ -20,18 +20,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout zigroute (private, PAT)
-        uses: actions/checkout@v4
-        with:
-          repository: fixnet-ai/zigroute
-          token: ${{ secrets.ORG_PAT }}
-          path: zigroute
-
       - uses: mlugg/setup-zig@v1
         with:
           version: 0.16.0
 
+      # geo-zrs 自包含（zrs 格式+转换工具同仓；公开仓零跨仓凭据——依赖方向
+      # 反转：zigroute(私有) → geozrs(公开)，2026-10-31 用户裁定）
       - name: Refresh datasets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ZIGROUTE="$GITHUB_WORKSPACE/zigroute" ./update.sh --publish
+        run: ./update.sh --publish
