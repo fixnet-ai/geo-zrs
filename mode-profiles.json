@@ -22,14 +22,14 @@
         "outbound": "direct-out"
       },
       {
-        "geosite": [
-          "cn"
+        "rule_set": [
+          "geosite-cn"
         ],
         "outbound": "direct-out"
       },
       {
-        "geoip": [
-          "cn"
+        "rule_set": [
+          "geoip-cn"
         ],
         "outbound": "direct-out"
       }
@@ -112,10 +112,10 @@
     },
     "route_rules_prepend": [
       {
-        "geosite": [
-          "google",
-          "github",
-          "gfw"
+        "rule_set": [
+          "geosite-google",
+          "geosite-github",
+          "geosite-gfw"
         ],
         "outbound": "proxy"
       }
