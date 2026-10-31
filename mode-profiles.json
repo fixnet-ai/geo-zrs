@@ -69,7 +69,7 @@
             "server": "dns-fakeip"
           }
         ],
-        "final": "dns-remote",
+        "final": "dns-bootstrap",
         "strategy": "prefer_ipv4",
         "background_resolve": false
       }
@@ -111,6 +111,15 @@
       "final": "direct-out"
     },
     "route_rules_prepend": [
+      {
+        "ip_cidr": [
+          "1.1.1.1/32",
+          "1.0.0.1/32",
+          "8.8.8.8/32",
+          "8.8.4.4/32"
+        ],
+        "outbound": "proxy"
+      },
       {
         "geosite": [
           "google",
