@@ -10,7 +10,7 @@
         "outbound": "direct-out"
       },
       {
-        "rule_set": [
+        "geosite": [
           "category-ai-!cn"
         ],
         "outbound": "kiss-exit-nohk"
@@ -22,14 +22,14 @@
         "outbound": "direct-out"
       },
       {
-        "rule_set": [
-          "geosite-cn"
+        "geosite": [
+          "cn"
         ],
         "outbound": "direct-out"
       },
       {
-        "rule_set": [
-          "geoip-cn"
+        "geoip": [
+          "cn"
         ],
         "outbound": "direct-out"
       }
@@ -112,10 +112,17 @@
     },
     "route_rules_prepend": [
       {
-        "rule_set": [
-          "geosite-google",
-          "geosite-github",
-          "geosite-gfw"
+        "geosite": [
+          "google",
+          "github",
+          "gfw",
+          "telegram"
+        ],
+        "outbound": "proxy"
+      },
+      {
+        "geoip": [
+          "telegram"
         ],
         "outbound": "proxy"
       }
