@@ -34,7 +34,63 @@
         "outbound": "direct-out"
       }
     ],
-    "node_domain_resolver": "default-dns"
+    "node_domain_resolver": "default-dns",
+    "replace_sections": {
+      "dns": {
+        "servers": [
+          {
+            "type": "udp",
+            "tag": "default-dns",
+            "server": "223.5.5.5",
+            "detour": "direct-out"
+          },
+          {
+            "type": "https",
+            "tag": "dns-remote",
+            "server": "1.1.1.1",
+            "path": "/dns-query",
+            "detour": "proxy"
+          },
+          {
+            "type": "fakeip",
+            "tag": "dns-fakeip",
+            "inet4_range": "198.18.0.0/15",
+            "inet6_range": "fc00::/64"
+          }
+        ],
+        "rules": [
+          {
+            "geosite": [
+              "cn"
+            ],
+            "server": "default-dns"
+          },
+          {
+            "domain": [
+              "dns.msftnsci.com",
+              "www.msftnsci.com",
+              "www.msftconnecttest.com"
+            ],
+            "server": "default-dns"
+          },
+          {
+            "query_type": [
+              "A",
+              "AAAA"
+            ],
+            "server": "dns-fakeip"
+          },
+          {
+            "query_type": [
+              "HTTPS"
+            ],
+            "server": "dns-remote"
+          }
+        ],
+        "final": "default-dns",
+        "strategy": "prefer_ipv4"
+      }
+    }
   },
   "global": {
     "replace_sections": {
@@ -57,7 +113,8 @@
             "type": "https",
             "tag": "dns-remote",
             "server": "1.1.1.1",
-            "path": "/dns-query"
+            "path": "/dns-query",
+            "detour": "proxy"
           }
         ],
         "rules": [
@@ -67,6 +124,12 @@
               "AAAA"
             ],
             "server": "dns-fakeip"
+          },
+          {
+            "query_type": [
+              "HTTPS"
+            ],
+            "server": "dns-remote"
           }
         ],
         "final": "dns-bootstrap",
@@ -100,10 +163,25 @@
             "tag": "default-dns",
             "server": "223.5.5.5",
             "detour": "direct-out"
+          },
+          {
+            "type": "https",
+            "tag": "dns-remote",
+            "server": "1.1.1.1",
+            "path": "/dns-query",
+            "detour": "proxy"
           }
         ],
         "final": "default-dns",
-        "strategy": "prefer_ipv4"
+        "strategy": "prefer_ipv4",
+        "rules": [
+          {
+            "query_type": [
+              "HTTPS"
+            ],
+            "server": "dns-remote"
+          }
+        ]
       }
     },
     "route_shaping": {
