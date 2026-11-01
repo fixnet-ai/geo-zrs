@@ -33,16 +33,16 @@ DIST="$REPO_DIR/dist"; mkdir -p "$DIST"
 # ads 轻量集 = 本仓 vendor 的 ads-lite.txt（人可读三段式；源自 @sing 一次性导出，
 # 更新时用消费方工具重新导出——本仓零 srs 解析依赖）
 
-# ── 2. 转换（本仓自包含工具：容器 + ads-lite 覆盖；同批 full/base）──────────
+# ── 2. 转换（本仓自包含工具：容器 + ads-lite 覆盖；只产 full——base 退役
+#    2026-11-01，内置库直接内嵌 full）─────────────────────────────────────────
 mkdir -p "$WORK/src"
 mv "$WORK/geoip.dat" "$WORK/geosite.dat" "$WORK/src/"
 zig build zrs-convert
 ./zig-out/bin/zrs-convert --src "$WORK/src" --out "$DIST" --ads-override ads-lite.txt
+rm -f "$DIST/geo-base.zrs" "$DIST/geo-base.zrs.zip"
 
 # ── 3. zip + 指纹（双层：zip 下载完整性 / zrs 解压正确性）──────────────────
-for n in geo-full geo-base; do
-  (cd "$DIST" && rm -f "$n.zrs.zip" && zip -9 -q "$n.zrs.zip" "$n.zrs")
-done
+(cd "$DIST" && rm -f geo-full.zrs.zip && zip -9 -q geo-full.zrs.zip geo-full.zrs)
 
 python3 - "$DIST" "$TAG" "$REPO_SLUG" <<'PY'
 import hashlib, json, sys, os
@@ -60,8 +60,6 @@ m = {
     "files": {
         "geo-full.zrs.zip": entry("geo-full.zrs.zip", True),
         "geo-full.zrs":     entry("geo-full.zrs", False),
-        "geo-base.zrs.zip": entry("geo-base.zrs.zip", True),
-        "geo-base.zrs":     entry("geo-base.zrs", False),
     },
 }
 open(os.path.join(dist, "version.json"), "w").write(json.dumps(m, indent=2) + "\n")
@@ -79,8 +77,8 @@ if [[ "$PUBLISH" == "1" ]]; then
     "${GH[@]}" release delete "$TAG" --yes
   fi
   "${GH[@]}" release create "$TAG" \
-    "$DIST/geo-full.zrs.zip" "$DIST/geo-base.zrs.zip" \
-    --title "$TAG" --notes "dataset refresh $TAG (full ~15MB zrs / zip ~4.4MB; ads-lite override)" \
+    "$DIST/geo-full.zrs.zip" \
+    --title "$TAG" --notes "dataset refresh $TAG (full ~15MB zrs / zip ~4.4MB; ads-lite override; geo-base retired 2026-11-01)" \
     --target main
   cp "$DIST/version.json" "$REPO_DIR/version.json"
   git -C "$REPO_DIR" add version.json
@@ -92,4 +90,4 @@ if [[ "$PUBLISH" == "1" ]]; then
     while read -r old; do "${GH[@]}" release delete "$old" --yes || true; done
 fi
 
-echo "done: $TAG (dist/ 下 geo-full.zrs.zip + geo-base.zrs.zip + version.json)"
+echo "done: $TAG (dist/ 下 geo-full.zrs.zip + version.json；base 已退役)"

@@ -17,17 +17,9 @@ pub const log_level = std.log.Level.info;
 
 const DAT_MAX: usize = 64 * 1024 * 1024;
 const ADS_TAG = "category-ads-all";
-/// base 裁剪集（2026-10-31 用户裁定逐批扩容；同日 +category-ai-!cn 恢复 base
-/// 态 AI 定向（v5 档位表 AI 走 geosite:category-ai-!cn 库点查，base 无此 tag
-/// 会 miss→final——full 到位前的临时退化不可接受））：
-///   cn/ads-lite                       —— 三档分流 + 广告拦截
-///   cloudflare/telegram               —— CF 回环防护 + Workers 节点 / TG 无条件代理
-///   category-ip-geo-detect            —— 归属地检测站（诊断/测速流量出口控制）
-///   tld-!cn                           —— 非 cn 顶级域（未知策略的墙外域先验）
-///   category-porn / category-games-!cn —— 内容分级 / 外服游戏分流（消费方待接线）
-///   category-ai-!cn                   —— Smart 档 AI 专用集（nohk 组定向）
-///   google/github/gfw                 —— direct 档例外链
-const BASE_TAGS = "cn,category-ads-all,category-ai-!cn,category-games-!cn,category-ip-geo-detect,category-porn,cloudflare,google,github,gfw,telegram,tld-!cn";
+// geo-base 裁剪集已退役（2026-11-01 用户裁定）：内置库改为直接内嵌最新
+// geo-full（kiss-core assets/geo-full.zip），下载失败也有完整规则可用；产线
+// 只出 geo-full 一个产物（update.sh/version.json/release 同步收敛）。
 
 pub fn main(init: std.process.Init) !void {
     const alloc = std.heap.page_allocator;
@@ -58,9 +50,7 @@ pub fn main(init: std.process.Init) !void {
         break :blk AdsLite{};
     };
 
-    // 同批两产物：full（全量）+ base（裁剪，含 ads 轻量版）。
     try convertOne(io, alloc, src_dir, out_dir, "geo-full.zrs", null, ads);
-    try convertOne(io, alloc, src_dir, out_dir, "geo-base.zrs", BASE_TAGS, ads);
 }
 
 /// 三段式轻量集（[exact]/[suffix]/[keyword] 段头 + 行清单；# 注释与空行跳过）。
