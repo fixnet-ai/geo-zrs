@@ -2,6 +2,13 @@
   "rule": {
     "route_rules_prepend": [
       {
+        "port": 443,
+        "network": [
+          "udp"
+        ],
+        "action": "reject"
+      },
+      {
         "port": 53,
         "action": "hijack-dns"
       },
@@ -20,6 +27,21 @@
           "deepseek.com"
         ],
         "outbound": "direct-out"
+      },
+      {
+        "geosite": [
+          "google",
+          "github",
+          "gfw",
+          "telegram"
+        ],
+        "outbound": "kiss-exit"
+      },
+      {
+        "geoip": [
+          "telegram"
+        ],
+        "outbound": "kiss-exit"
       },
       {
         "geosite": [
@@ -72,6 +94,13 @@
               "www.msftconnecttest.com"
             ],
             "server": "default-dns"
+          },
+          {
+            "geosite": [
+              "cn"
+            ],
+            "invert": true,
+            "server": "dns-remote"
           },
           {
             "query_type": [
