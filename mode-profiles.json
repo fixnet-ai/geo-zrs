@@ -159,6 +159,13 @@
               "HTTPS"
             ],
             "server": "dns-remote"
+          },
+          {
+            "query_type": [
+              "TXT",
+              "MX"
+            ],
+            "server": "dns-remote"
           }
         ],
         "final": "dns-bootstrap",
