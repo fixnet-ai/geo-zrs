@@ -1,16 +1,16 @@
 {
   "v": 2,
-  "updated_at": "20261106",
-  "tag": "data-20261106",
+  "updated_at": "20261107",
+  "tag": "data-20261107",
   "files": {
     "geo-full.zrs.zip": {
-      "size": 4643937,
-      "sha256": "b64c4ce1ff2da223d1e9f74132f4fb143791cdde300978b017419da129dfdd5b",
-      "url": "https://github.com/fixnet-ai/geo-zrs/releases/download/data-20261106/geo-full.zrs.zip"
+      "size": 4641891,
+      "sha256": "a22d6195e6807e11db27b47b7920693b3d1ae3e4e1acebd0503b085a7f690e91",
+      "url": "https://github.com/fixnet-ai/geo-zrs/releases/download/data-20261107/geo-full.zrs.zip"
     },
     "geo-full.zrs": {
-      "size": 15506888,
-      "sha256": "483269f8557408fa999a6fc4b318106bb14b34b540281f09b6d911955cd430ef"
+      "size": 15504424,
+      "sha256": "70c1a05df53d59149aa135f2a600ea90e04f572a7e57e93c367e1e01a4d9c984"
     }
   }
 }
