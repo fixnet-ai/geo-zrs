@@ -4,13 +4,13 @@
   "tag": "data-20261110",
   "files": {
     "geo-full.zrs.zip": {
-      "size": 4642687,
-      "sha256": "8a71b993c69c7bfae16c9372117cebd6d8407128bfee7c4a9c917f11238f4e14",
+      "size": 4642997,
+      "sha256": "6f30f14d552a27824d878df476668594a087c2829563157cf2bf62fe2987d20b",
       "url": "https://github.com/fixnet-ai/geo-zrs/releases/download/data-20261110/geo-full.zrs.zip"
     },
     "geo-full.zrs": {
-      "size": 15505289,
-      "sha256": "5104ad26a027f4cb3d9f6a346ccc4b4fedc172cf6f01850b226d4474316726b9"
+      "size": 15505546,
+      "sha256": "ba89726cd8c3c03563499f05346707edf21bf1c64db14b544558138a4e384dfd"
     }
   }
 }
