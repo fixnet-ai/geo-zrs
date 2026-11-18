@@ -85,8 +85,10 @@ if [[ "$PUBLISH" == "1" ]]; then
   git -C "$REPO_DIR" -c user.name=fixnet-ai -c user.email=28281228+fixnet-ai@users.noreply.github.com \
     commit -m "data: version.json $TAG" || { echo 'no changes'; exit 0; }
   git -C "$REPO_DIR" push origin main
-  # 只保留最近 5 个 data-* release（旧资产随 release 删除，存储零累积）
-  "${GH[@]}" release list --limit 100 | awk '/data-/ {print $3}' | tail -n +6 | \
+  # 只保留最近 5 个 data-* release（旧资产随 release 删除，存储零累积）。
+  # ⚠️ 必须 -F'\t'：非 Latest 行 STATUS 列为空，awk 默认空白切分会吞掉空列，
+  # $3 落到日期列 → 恒 release not found，旧批累积（2026-11-18 前的实锚）。
+  "${GH[@]}" release list --limit 100 | awk -F'\t' '/data-/ {print $3}' | tail -n +6 | \
     while read -r old; do "${GH[@]}" release delete "$old" --yes || true; done
 fi
 
