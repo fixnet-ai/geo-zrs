@@ -5,9 +5,13 @@
 //!
 //! 用法（工作目录 = 本仓根，或经 --src/--out 指定）：
 //!   zrs-convert [--src <dir>] [--out <dir>] [--ads-override <ads-lite.txt>]
+//!               [--dns-lite <dns-lite.txt>]
 //! 缺省 src=update.sh 的工作目录（geoip.dat + geosite.dat），out=dist。
 //! ads 覆盖：category-ads-all 一律用轻量集文本（exact/suffix/keyword 三段式）
 //! 替换上游 dat 重版（~19.4 万条；Q9 轻量裁定）。
+//! dns 注入：category-dns 上游不存在（v2fly/MetaCubeX 均无此 tag，2026-11-18
+//! 核实）——用 dns-lite.txt（dibdot doh-domains 大全 + kiss-core 兜底补差）
+//! 新造该 tag，供 kiss-core applyEncryptedDnsBlock 规则③消费。
 
 const std = @import("std");
 const zrs = @import("zrs.zig");
@@ -17,6 +21,7 @@ pub const log_level = std.log.Level.info;
 
 const DAT_MAX: usize = 64 * 1024 * 1024;
 const ADS_TAG = "category-ads-all";
+const DNS_TAG = "category-dns";
 // geo-base 裁剪集已退役（2026-11-01 用户裁定）：内置库改为直接内嵌最新
 // geo-full（kiss-core assets/geo-full.zip），下载失败也有完整规则可用；产线
 // 只出 geo-full 一个产物（update.sh/version.json/release 同步收敛）。
@@ -26,6 +31,7 @@ pub fn main(init: std.process.Init) !void {
     var src_dir: []const u8 = "work";
     var out_dir: []const u8 = "dist";
     var ads_path: []const u8 = "ads-lite.txt";
+    var dns_path: []const u8 = "dns-lite.txt";
     {
         var it = try std.process.Args.Iterator.initAllocator(init.minimal.args, alloc);
         defer it.deinit();
@@ -37,6 +43,8 @@ pub fn main(init: std.process.Init) !void {
                 out_dir = try alloc.dupe(u8, it.next() orelse return error.MissingArg);
             } else if (std.mem.eql(u8, a, "--ads-override")) {
                 ads_path = try alloc.dupe(u8, it.next() orelse return error.MissingArg);
+            } else if (std.mem.eql(u8, a, "--dns-lite")) {
+                dns_path = try alloc.dupe(u8, it.next() orelse return error.MissingArg);
             }
         }
     }
@@ -45,23 +53,28 @@ pub fn main(init: std.process.Init) !void {
     defer threaded.deinit();
     const io = threaded.io();
 
-    const ads = loadAdsLite(io, alloc, ads_path) catch |err| blk: {
+    const ads = loadLiteList(io, alloc, ads_path) catch |err| blk: {
         std.log.warn("[convert] ads 覆盖源读取失败（{s}）：{s} —— category-ads-all 将缺失", .{ ads_path, @errorName(err) });
-        break :blk AdsLite{};
+        break :blk LiteList{};
+    };
+    const dns = loadLiteList(io, alloc, dns_path) catch |err| blk: {
+        std.log.warn("[convert] dns 注入源读取失败（{s}）：{s} —— category-dns 将缺失", .{ dns_path, @errorName(err) });
+        break :blk LiteList{};
     };
 
-    try convertOne(io, alloc, src_dir, out_dir, "geo-full.zrs", null, ads);
+    try convertOne(io, alloc, src_dir, out_dir, "geo-full.zrs", null, ads, dns);
 }
 
-/// 三段式轻量集（[exact]/[suffix]/[keyword] 段头 + 行清单；# 注释与空行跳过）。
-const AdsLite = struct {
+/// 三段式轻量集（[exact]/[suffix]/[keyword]/[regex] 段头 + 行清单；# 注释与
+/// 空行跳过）。ads 覆盖与 dns 注入共用此格式与解析。
+const LiteList = struct {
     exact: []const []const u8 = &.{},
     suffix: []const []const u8 = &.{},
     keyword: []const []const u8 = &.{},
     regex: []const []const u8 = &.{},
 };
 
-fn loadAdsLite(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !AdsLite {
+fn loadLiteList(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !LiteList {
     var arena_state = std.heap.ArenaAllocator.init(alloc);
     defer arena_state.deinit();
     const a = arena_state.allocator();
@@ -117,7 +130,7 @@ fn tagInList(filter: []const u8, tag: []const u8) bool {
     return false;
 }
 
-fn collect(a: std.mem.Allocator, io: std.Io, src_dir: []const u8, tag_filter: ?[]const u8, ads: AdsLite) !Collected {
+fn collect(a: std.mem.Allocator, io: std.Io, src_dir: []const u8, tag_filter: ?[]const u8, ads: LiteList, dns: LiteList) !Collected {
     var res: Collected = .{};
 
     const ip_path = try std.fmt.allocPrint(a, "{s}/geoip.dat", .{src_dir});
@@ -135,6 +148,8 @@ fn collect(a: std.mem.Allocator, io: std.Io, src_dir: []const u8, tag_filter: ?[
     for (sites) |s| {
         // ads 覆盖在案时 dat 重版条目整 tag 跳过（下面由轻量集注入）
         if (std.mem.eql(u8, s.tag, ADS_TAG) and (ads.exact.len > 0 or ads.suffix.len > 0 or ads.keyword.len > 0)) continue;
+        // dns 注入同律：上游未来若长出 category-dns，轻量集在案时整 tag 跳过（防双条目）
+        if (std.mem.eql(u8, s.tag, DNS_TAG) and (dns.exact.len > 0 or dns.suffix.len > 0 or dns.keyword.len > 0)) continue;
         if (tag_filter) |tf| if (!tagInList(tf, s.tag)) continue;
         res.domain_total += s.domains.len + s.domain_suffixes.len + s.domain_keywords.len + s.domain_regexes.len;
         try res.dom_entries.append(a, .{
@@ -157,15 +172,29 @@ fn collect(a: std.mem.Allocator, io: std.Io, src_dir: []const u8, tag_filter: ?[
         });
         std.log.info("[convert] ads 覆盖生效：exact={d} suffix={d} keyword={d}", .{ ads.exact.len, ads.suffix.len, ads.keyword.len });
     }
+    // category-dns 注入（2026-11-18）：上游无此 tag，纯新增——kiss-core
+    // applyEncryptedDnsBlock 规则③的数据腿（缺 tag 时规则 fail-open 且每次
+    // 启动 warnGeoGaps 告警）。
+    if (dns.exact.len + dns.suffix.len + dns.keyword.len + dns.regex.len > 0) {
+        res.domain_total += dns.exact.len + dns.suffix.len + dns.keyword.len + dns.regex.len;
+        try res.dom_entries.append(a, .{
+            .tag = DNS_TAG,
+            .domains = dns.exact,
+            .domain_suffixes = dns.suffix,
+            .domain_keywords = dns.keyword,
+            .domain_regexes = dns.regex,
+        });
+        std.log.info("[convert] dns 注入生效：exact={d} suffix={d} keyword={d}", .{ dns.exact.len, dns.suffix.len, dns.keyword.len });
+    }
     return res;
 }
 
-fn convertOne(io: std.Io, alloc: std.mem.Allocator, src_dir: []const u8, out_dir: []const u8, name: []const u8, tag_filter: ?[]const u8, ads: AdsLite) !void {
+fn convertOne(io: std.Io, alloc: std.mem.Allocator, src_dir: []const u8, out_dir: []const u8, name: []const u8, tag_filter: ?[]const u8, ads: LiteList, dns: LiteList) !void {
     var arena_state = std.heap.ArenaAllocator.init(alloc);
     defer arena_state.deinit();
     const a = arena_state.allocator();
 
-    const c = try collect(a, io, src_dir, tag_filter, ads);
+    const c = try collect(a, io, src_dir, tag_filter, ads, dns);
     const bytes = try zrs.serializeContainer(alloc, c.dom_entries.items, c.ip_entries.items);
     defer alloc.free(bytes);
 
@@ -200,7 +229,7 @@ test "convert: loadAdsLite 三段式 + 注释/空行跳过 + 段前条目拒收"
 
     var arena_state = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena_state.deinit();
-    const ads = try loadAdsLite(io, arena_state.allocator(), rel);
+    const ads = try loadLiteList(io, arena_state.allocator(), rel);
     try testing.expectEqual(@as(usize, 2), ads.exact.len);
     try testing.expectEqualStrings("a.com", ads.exact[0]);
     try testing.expectEqual(@as(usize, 1), ads.suffix.len);

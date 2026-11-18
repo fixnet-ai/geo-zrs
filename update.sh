@@ -38,7 +38,7 @@ DIST="$REPO_DIR/dist"; mkdir -p "$DIST"
 mkdir -p "$WORK/src"
 mv "$WORK/geoip.dat" "$WORK/geosite.dat" "$WORK/src/"
 zig build zrs-convert
-./zig-out/bin/zrs-convert --src "$WORK/src" --out "$DIST" --ads-override ads-lite.txt
+./zig-out/bin/zrs-convert --src "$WORK/src" --out "$DIST" --ads-override ads-lite.txt --dns-lite dns-lite.txt
 rm -f "$DIST/geo-base.zrs" "$DIST/geo-base.zrs.zip"
 
 # ── 3. zip + 指纹（双层：zip 下载完整性 / zrs 解压正确性）──────────────────
