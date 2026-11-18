@@ -2,6 +2,12 @@
   "rule": {
     "route_rules_prepend": [
       {
+        "domain_suffix": [
+          "dns.google"
+        ],
+        "action": "reject"
+      },
+      {
         "port": 443,
         "network": [
           "udp"
@@ -83,6 +89,15 @@
         "rules": [
           {
             "geosite": [
+              "google",
+              "github",
+              "gfw",
+              "telegram"
+            ],
+            "server": "dns-remote"
+          },
+          {
+            "geosite": [
               "cn"
             ],
             "server": "default-dns"
@@ -152,6 +167,19 @@
               "A",
               "AAAA"
             ],
+            "geosite": [
+              "google",
+              "github",
+              "gfw",
+              "telegram"
+            ],
+            "server": "dns-fakeip"
+          },
+          {
+            "query_type": [
+              "A",
+              "AAAA"
+            ],
             "server": "dns-fakeip"
           },
           {
@@ -174,6 +202,12 @@
       }
     },
     "route_rules_prepend": [
+      {
+        "domain_suffix": [
+          "dns.google"
+        ],
+        "action": "reject"
+      },
       {
         "port": 443,
         "network": [
@@ -216,6 +250,15 @@
               "HTTPS"
             ],
             "server": "dns-remote"
+          },
+          {
+            "geosite": [
+              "google",
+              "github",
+              "gfw",
+              "telegram"
+            ],
+            "server": "default-dns"
           }
         ]
       }
@@ -227,6 +270,12 @@
       "final": "direct-out"
     },
     "route_rules_prepend": [
+      {
+        "domain_suffix": [
+          "dns.google"
+        ],
+        "action": "reject"
+      },
       {
         "geosite": [
           "google",
