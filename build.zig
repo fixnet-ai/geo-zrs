@@ -47,4 +47,15 @@ pub fn build(b: *std.Build) void {
     const install_conv = b.addInstallArtifact(conv_exe, .{});
     const conv_step = b.step("zrs-convert", "Build dataset converter");
     conv_step.dependOn(&install_conv.step);
+
+    // tag 枚举（取证：geo-full.zrs 里非国家码标签清单）
+    const dump_mod = b.createModule(.{
+        .root_source_file = b.path("src/tagsdump.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const dump_exe = b.addExecutable(.{ .name = "zrs-tagsdump", .root_module = dump_mod });
+    const install_dump = b.addInstallArtifact(dump_exe, .{});
+    const dump_step = b.step("tagsdump", "Build tag dumper");
+    dump_step.dependOn(&install_dump.step);
 }
