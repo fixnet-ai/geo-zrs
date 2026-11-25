@@ -5,7 +5,7 @@
   "files": {
     "geo-full.zrs.zip": {
       "size": 4662880,
-      "sha256": "9ed70f8694b7b15ddd79cd525f04de6e55affc3ebe418f02dc54c2ca26dc7d2d",
+      "sha256": "3daf9016e5624f9d11a93e70421c898d22ac0ff148a670cf76536d1cc6f5d9ef",
       "url": "https://github.com/fixnet-ai/geo-zrs/releases/download/data-20261125/geo-full.zrs.zip"
     },
     "geo-full.zrs": {
